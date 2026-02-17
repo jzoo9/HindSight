@@ -136,4 +136,4 @@ def run_backtest(req: BacktestRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-app.include_router(api, prefix="/api")
+app.include_router(api)
