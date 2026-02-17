@@ -187,7 +187,7 @@
 
         setLoading(true);
         try {
-          const res = await fetch('/run_backtest', {
+          const res = await fetch('/api/run_backtest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticker, start_date, end_date }),
