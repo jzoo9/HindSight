@@ -134,6 +134,10 @@ def run_backtest(req: BacktestRequest):
         return run_backtest_result(req.ticker, req.start_date, req.end_date)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        # Surface a useful error message to the frontend (and logs in Vercel).
+        print("run_backtest failed:", repr(e))
+        raise HTTPException(status_code=500, detail=f"Backtest failed: {e}")
 
 
 app.include_router(api, prefix="/api")
