@@ -24,6 +24,16 @@ app.add_middleware(
 
 BENCHMARK_TICKER = "SPY"
 
+@app.get("/")
+def root():
+    return {
+        "ok": True,
+        "message": "Backtest API is running",
+        "endpoints": {
+            "run_backtest": "POST /run_backtest (recommended on Vercel), POST /api/run_backtest",
+        },
+    }
+
 
 class BacktestRequest(BaseModel):
     ticker: str
