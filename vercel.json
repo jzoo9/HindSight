@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "app.py": {
+      "maxDuration": 60
+    }
+  },
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/app.py" }
+  ]
+}
