@@ -1,16 +1,19 @@
 """
-FastAPI app for backtesting - single POST /run_backtest endpoint.
+FastAPI app for backtesting - POST /api/run_backtest endpoint.
 Integrates: data_loader, trade_signal, backtest_engine, key_performance_metrics.
 """
 import pandas as pd
 import numpy as np
 import yfinance as yf
-from fastapi import FastAPI, HTTPException
+from pathlib import Path
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 
 app = FastAPI(title="Backtest API")
+api = APIRouter()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,7 +31,7 @@ class BacktestRequest(BaseModel):
     end_date: str
 
 
-def data_loader(ticker: str, start: str = "2020-01-01", end: Optional[str] = None):
+def data_loader(ticker: str, start: str = "2020-01-01", end: Optional[str] = None) -> pd.DataFrame:
     df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
     if df.empty or len(df) < 50:
         raise ValueError(f"Insufficient data for {ticker} (need at least 50 rows)")
@@ -39,7 +42,7 @@ def data_loader(ticker: str, start: str = "2020-01-01", end: Optional[str] = Non
     return df
 
 
-def trade_signal(df: pd.DataFrame):
+def trade_signal(df: pd.DataFrame) -> pd.DataFrame:
     sim_df = df.copy()
     sim_df["ma50"] = sim_df["price"].rolling(50).mean()
     sim_df["signal"] = 0
@@ -47,7 +50,7 @@ def trade_signal(df: pd.DataFrame):
     return sim_df
 
 
-def backtest_engine(df: pd.DataFrame):
+def backtest_engine(df: pd.DataFrame) -> pd.DataFrame:
     sim_df = df.copy()
     sim_df["returns"] = sim_df["price"].pct_change()
     sim_df["strategy_returns"] = sim_df["signal"].shift(1) * sim_df["returns"]
@@ -56,7 +59,7 @@ def backtest_engine(df: pd.DataFrame):
     return sim_df.dropna()
 
 
-def key_performance_metrics(df: pd.DataFrame, benchmark_df: pd.DataFrame):
+def key_performance_metrics(df: pd.DataFrame, benchmark_df: pd.DataFrame) -> dict:
     strategy_returns = df["strategy_returns"]
     market_returns = benchmark_df["returns"].reindex(df.index).fillna(0)
 
@@ -88,7 +91,7 @@ def key_performance_metrics(df: pd.DataFrame, benchmark_df: pd.DataFrame):
     }
 
 
-def run_backtest_result(ticker: str, start_date: str, end_date: str):
+def run_backtest_result(ticker: str, start_date: str, end_date: str) -> dict:
     """Shared backtest logic; used by FastAPI and Vercel serverless."""
     ticker = ticker.strip().upper()
     if not ticker:
@@ -125,9 +128,17 @@ def run_backtest_result(ticker: str, start_date: str, end_date: str):
     }
 
 
-@app.post("/run_backtest")
+@api.post("/run_backtest")
 def run_backtest(req: BacktestRequest):
     try:
         return run_backtest_result(req.ticker, req.start_date, req.end_date)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+app.include_router(api, prefix="/api")
+
+# Serve frontend for local dev; mount last so /api is handled first
+public = Path(__file__).parent / "public"
+if public.exists():
+    app.mount("/", StaticFiles(directory=str(public), html=True), name="static")
