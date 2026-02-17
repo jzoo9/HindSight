@@ -138,7 +138,3 @@ def run_backtest(req: BacktestRequest):
 
 app.include_router(api, prefix="/api")
 
-# Serve frontend for local dev; mount last so /api is handled first
-public = Path(__file__).parent / "public"
-if public.exists():
-    app.mount("/", StaticFiles(directory=str(public), html=True), name="static")
