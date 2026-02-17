@@ -2,4 +2,9 @@
   "rewrites": [
     { "source": "/", "destination": "/index.html" }
   ],
+  "functions": {
+    "api/run_backtest.py": {
+      "maxDuration": 10
+    }
+  }
 }
