@@ -192,9 +192,15 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticker, start_date, end_date }),
           });
-          const data = await res.json().catch(() => ({}));
+          const rawText = await res.text().catch(() => '');
+          const data = rawText ? (() => { try { return JSON.parse(rawText); } catch { return {}; } })() : {};
           if (!res.ok) {
-            showError(data.detail || res.statusText || 'Backtest failed');
+            const detail =
+              (data && (data.detail || data.message)) ||
+              (rawText && rawText.slice(0, 300)) ||
+              res.statusText ||
+              'Backtest failed';
+            showError(detail);
             return;
           }
           renderMetrics(data.metrics);
