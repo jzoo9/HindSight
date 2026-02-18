@@ -1,7 +1,4 @@
-"""
-FastAPI app for backtesting - POST /api/run_backtest endpoint.
-Integrates: data_loader, trade_signal, backtest_engine, key_performance_metrics.
-"""
+
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -41,7 +38,7 @@ class BacktestRequest(BaseModel):
     end_date: str
 
 
-def data_loader(ticker: str, start: str = "2020-01-01", end: Optional[str] = None) -> pd.DataFrame:
+def data_loader(ticker: str, start: str = "2020-01-01", end: Optional[str] = None):
     df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
     if df.empty or len(df) < 50:
         raise ValueError(f"Insufficient data for {ticker} (need at least 50 rows)")
@@ -69,7 +66,7 @@ def backtest_engine(df: pd.DataFrame) -> pd.DataFrame:
     return sim_df.dropna()
 
 
-def key_performance_metrics(df: pd.DataFrame, benchmark_df: pd.DataFrame) -> dict:
+def key_performance_metrics(df: pd.DataFrame, benchmark_df: pd.DataFrame):
     strategy_returns = df["strategy_returns"]
     market_returns = benchmark_df["returns"].reindex(df.index).fillna(0)
 
@@ -101,7 +98,7 @@ def key_performance_metrics(df: pd.DataFrame, benchmark_df: pd.DataFrame) -> dic
     }
 
 
-def run_backtest_result(ticker: str, start_date: str, end_date: str) -> dict:
+def run_backtest_result(ticker: str, start_date: str, end_date: str):
     """Shared backtest logic; used by FastAPI and Vercel serverless."""
     ticker = ticker.strip().upper()
     if not ticker:
