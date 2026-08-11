@@ -47,9 +47,13 @@
         <button
           id="run-btn"
           type="button"
-          class="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-900/30 transition focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-900/30 transition focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-950 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
         >
-          Run Backtest
+          <svg id="run-btn-spinner" class="hidden animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span id="run-btn-label">Run Backtest</span>
         </button>
       </div>
       <p id="error-msg" class="mt-2 text-sm text-red-400 hidden"></p>
@@ -66,6 +70,12 @@
           <div id="metrics-placeholder" class="p-4 text-slate-500 text-sm">
             Enter a ticker and run a backtest to see metrics.
           </div>
+          <div id="metrics-loading" class="hidden p-4 space-y-3">
+            <div class="h-4 bg-slate-800 rounded animate-pulse w-3/4"></div>
+            <div class="h-4 bg-slate-800 rounded animate-pulse w-1/2"></div>
+            <div class="h-4 bg-slate-800 rounded animate-pulse w-5/6"></div>
+            <div class="h-4 bg-slate-800 rounded animate-pulse w-2/3"></div>
+          </div>
           <table id="metrics-table" class="w-full text-sm hidden">
             <tbody id="metrics-tbody"></tbody>
           </table>
@@ -77,6 +87,13 @@
         <div class="rounded-xl bg-slate-900/80 border border-slate-800 overflow-hidden shadow-lg min-h-[420px]">
           <div id="chart-placeholder" class="flex items-center justify-center min-h-[420px] text-slate-500 text-sm">
             Chart will appear here after you run a backtest.
+          </div>
+          <div id="chart-loading" class="hidden flex-col items-center justify-center gap-3 min-h-[420px] text-slate-400 text-sm px-8 text-center">
+            <svg class="animate-spin h-8 w-8 text-emerald-500" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            <span id="chart-loading-text">Fetching market data…</span>
           </div>
           <div id="chart-container" class="hidden w-full min-h-[420px] p-2"></div>
         </div>
@@ -90,12 +107,19 @@
       const startDateEl = document.getElementById('start_date');
       const endDateEl = document.getElementById('end_date');
       const runBtn = document.getElementById('run-btn');
+      const runBtnSpinner = document.getElementById('run-btn-spinner');
+      const runBtnLabel = document.getElementById('run-btn-label');
       const errorMsg = document.getElementById('error-msg');
       const metricsPlaceholder = document.getElementById('metrics-placeholder');
+      const metricsLoading = document.getElementById('metrics-loading');
       const metricsTable = document.getElementById('metrics-table');
       const metricsTbody = document.getElementById('metrics-tbody');
       const chartPlaceholder = document.getElementById('chart-placeholder');
+      const chartLoading = document.getElementById('chart-loading');
+      const chartLoadingText = document.getElementById('chart-loading-text');
       const chartContainer = document.getElementById('chart-container');
+
+      let coldStartTimer = null;
 
       // Default dates: 2 years back
       const end = new Date();
@@ -111,7 +135,32 @@
 
       function setLoading(loading) {
         runBtn.disabled = loading;
-        runBtn.textContent = loading ? 'Running…' : 'Run Backtest';
+        runBtnLabel.textContent = loading ? 'Running…' : 'Run Backtest';
+        runBtnSpinner.classList.toggle('hidden', !loading);
+
+        clearTimeout(coldStartTimer);
+        if (loading) {
+          metricsPlaceholder.classList.add('hidden');
+          metricsTable.classList.add('hidden');
+          metricsLoading.classList.remove('hidden');
+
+          chartPlaceholder.classList.add('hidden');
+          chartContainer.classList.add('hidden');
+          chartLoadingText.textContent = 'Fetching market data…';
+          chartLoading.classList.remove('hidden');
+          chartLoading.classList.add('flex');
+
+          // Vercel's first request after idle can take a while to spin up the
+          // Python function + pull data; reassure the user it isn't frozen.
+          coldStartTimer = setTimeout(() => {
+            chartLoadingText.textContent =
+              'Still working — the server may be waking up from idle, this can take up to 30s on the first request.';
+          }, 4000);
+        } else {
+          metricsLoading.classList.add('hidden');
+          chartLoading.classList.add('hidden');
+          chartLoading.classList.remove('flex');
+        }
       }
 
       function renderMetrics(metrics) {
@@ -201,12 +250,16 @@
               res.statusText ||
               'Backtest failed';
             showError(detail);
+            renderMetrics(null);
+            renderChart(null);
             return;
           }
           renderMetrics(data.metrics);
           renderChart(data.chart_data, data.ticker, data.benchmark_ticker);
         } catch (e) {
           showError('Network error: ' + (e.message || 'Could not reach server'));
+          renderMetrics(null);
+          renderChart(null);
         } finally {
           setLoading(false);
         }
