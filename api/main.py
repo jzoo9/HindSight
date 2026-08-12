@@ -64,11 +64,6 @@ def backtest_engine(df: pd.DataFrame, commission_bps: float = 0.0, slippage_bps:
     sim_df = df.copy()
     sim_df["returns"] = sim_df["price"].pct_change()
 
-    # Signal is known at today's close, so the position it implies can only be
-    # acted on from tomorrow's open. `position` is what's held today, decided
-    # by yesterday's close; `entry`/`exit` flag the day that position actually
-    # changes, so those days earn a partial-day return from the open instead
-    # of the full close-to-close move (avoids same-bar-close lookahead).
     position = sim_df["signal"].shift(1)
     signal_change = sim_df["signal"].diff()
     entry = signal_change.shift(1) == 1
@@ -174,7 +169,6 @@ def run_backtest(req: BacktestRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Surface a useful error message to the frontend (and logs in Vercel).
         print("run_backtest failed:", repr(e))
         raise HTTPException(status_code=500, detail=f"Backtest failed: {e}")
 
